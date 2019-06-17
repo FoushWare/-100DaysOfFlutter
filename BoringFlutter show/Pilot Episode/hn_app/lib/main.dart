@@ -1,13 +1,24 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:hn_app/src/hn_bloc.dart';
 import 'json_parsing.dart';
 import 'src/article.dart';
 import "package:url_launcher/url_launcher.dart";
 import 'dart:async';
 import 'package:http/http.dart' as http;
 
-void main() => runApp(MyApp());
+/// inherited widget provide blocs to widgets blow
+void main() async {
+  final hnBloc= HackerNewsBloc();
+  runApp(MyApp(bloc:hnBloc));
+}
 
 class MyApp extends StatelessWidget {
+
+  final HackerNewsBloc bloc;
+
+  const MyApp({Key key, this.bloc}) : super(key: key);
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -15,17 +26,20 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       theme: ThemeData(
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(
+        title: 'Flutter Demo Home Page',
+        bloc: bloc,),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
 
-  MyHomePage({Key key, this.title}) : super(key: key);
+
+  MyHomePage({Key key, this.title, this.bloc}) : super(key: key);
 
   final String title;
-
+  final HackerNewsBloc bloc;
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
@@ -62,23 +76,14 @@ List<int>_ids=[
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child:ListView(children: _ids.map((i)=>
-            FutureBuilder<Article>(
-              future: _getArticle(i),
-              builder: (BuildContext context,AsyncSnapshot<Article>snapshot){
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return _buildItem(snapshot.data);
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
-              },
-            )
-
-        ).toList(),
-        ),
-      ),
+      body: StreamBuilder<UnmodifiableListView<Article>>(
+          stream: widget.bloc.articles,
+          initialData:UnmodifiableListView<Article>([]),
+          builder: (context,snapshot) => ListView(
+            /// Data mapped to some widgets
+            children: snapshot.data.map(_buildItem).toList(),
+          )
+      )
      // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
