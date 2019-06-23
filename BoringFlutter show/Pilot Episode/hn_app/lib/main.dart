@@ -6,6 +6,8 @@ import 'src/article.dart';
 import "package:url_launcher/url_launcher.dart";
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// inherited widget provide blocs to widgets blow
 void main() async {
@@ -25,6 +27,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
+        primarySwatch: Colors.deepOrange
       ),
       home: MyHomePage(
         title: 'Flutter Demo Home Page',
@@ -45,6 +48,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
+  /// create current index to change the active color on the bottom navigation  icons when it's clicked
+  int _currentIndex =0;
+
+
 
 //  List <Article> _articles = articles;
 
@@ -75,6 +83,7 @@ List<int>_ids=[
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        leading: LoadingInfo(widget.bloc.isLoading),
       ),
       body: StreamBuilder<UnmodifiableListView<Article>>(
           stream: widget.bloc.articles,
@@ -83,8 +92,33 @@ List<int>_ids=[
             /// Data mapped to some widgets
             children: snapshot.data.map(_buildItem).toList(),
           )
-      )
-     // This trailing comma makes auto-formatting nicer for build methods.
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          items: [
+          BottomNavigationBarItem(
+          icon: Icon(Icons.arrow_drop_up),
+          title: Text('Top Stories')
+          ),
+          BottomNavigationBarItem(
+          icon: Icon(Icons.new_releases),
+          title: Text('New Stories')
+          ),
+      ],
+       onTap: (index) {
+        if (index == 0) {
+          widget.bloc.storiesType.add(StoriesType.topStories);
+
+        }
+        else{
+          widget.bloc.storiesType.add(StoriesType.newStories);
+          index=1;
+        }
+        setState(() {
+          _currentIndex=index;
+        });
+
+        })
     );
   }
 
@@ -123,3 +157,60 @@ List<int>_ids=[
         );
   }
 }
+
+class LoadingInfo extends StatefulWidget {
+
+  Stream<bool> _isLoading;
+
+  LoadingInfo(this._isLoading);
+
+  @override
+  State<StatefulWidget> createState() {
+    // TODO: implement createState
+    return LoadingInfoState();
+  }
+
+}
+
+
+class LoadingInfoState extends State<LoadingInfo> with SingleTickerProviderStateMixin {
+
+
+  AnimationController _controller;
+
+
+  @override
+  void initState() {
+    super.initState();
+    /// vsync => checks if the widget in the view or not so the flutter don't be panic animate things that not shown in the view
+    _controller=AnimationController(vsync: this,
+      duration: Duration(seconds: 3)
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+
+
+    return StreamBuilder(
+      stream: widget._isLoading,
+      builder: (BuildContext context,AsyncSnapshot<bool>snapshot){
+        ///  snapshot.hasData => to check if it's have data  because it it's not it will called before have data and will cause problems
+        if(snapshot.hasData && snapshot.data) {
+          _controller.forward().then((f)=>_controller.reverse());
+
+          return FadeTransition(opacity: _controller,
+              child: Icon(FontAwesomeIcons.hackerNewsSquare));
+        }
+        else
+          return Container();
+      },
+    );
+  }
+
+}
+
+
+
+

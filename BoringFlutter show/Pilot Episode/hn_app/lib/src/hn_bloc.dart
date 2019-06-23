@@ -1,53 +1,62 @@
-import 'article.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:collection';
 
-class HackerNewsBloc{
+import 'package:http/http.dart' as http;
+import 'package:rxdart/rxdart.dart';
 
-// initialize new empty list of articles
-var _articles=<Article>[];
+import 'article.dart';
 
-
-Stream<UnmodifiableListView<Article>> get articles => _articlesSubject.stream;
-/// BehaviorSubject => It also allows sending data, error and done events
-/// to the listener, but the latest item that has been added to the subject
-/// will be sent to any new listeners of the subject
-final _articlesSubject= BehaviorSubject<UnmodifiableListView<Article>>();
-
-HackerNewsBloc(){
-_updateArticles().then((_){
-  /// push list of articles to the stream  .. send to the UI what will represent in the ui not make it do some logic
-  _articlesSubject.add(UnmodifiableListView(_articles));
-   
-});
+enum StoriesType{
+  topStories,
+  newStories
 }
 
-List<int>_ids=[
-  18052923,
-  18053337,
-  18034912,
-  18046274,
-  18041368,
-  18054574,
-  18039489,
-  18050090,
-  18047418,
-  18035283
-];
+class HackerNewsBloc {
+  static List<int> _newIds = [
+    18054574,
+    18039489,
+    18050090,
+    18047418,
+    18035283,
+  ];
 
-Future<Null> _updateArticles() async{
-  /// iterable future  ... use Future.wait(_iterable)
-  final futuresArticles=  _ids.map((id)=>_getArticle(id));
+  static List<int> _topIds = [
+    18052923,
+    18053337,
+    18034912,
+    18046274,
+    18041368,
+  ];
 
-  final articles= await Future.wait(futuresArticles);
-  _articles=articles;
+  /// we need stream of bool to indicate isLoading or Not
+  Stream<bool> get isLoading => _isLoadingSubject.stream;
+  final _isLoadingSubject=BehaviorSubject.seeded(false);
 
-}
 
 
-//return future Articles
-  Future<Article> _getArticle(int id ) async{
+  final _articlesSubject = BehaviorSubject<UnmodifiableListView<Article>>();
+
+  var _articles = <Article>[];
+
+  final _storiesTypeController = StreamController<StoriesType>();
+
+  HackerNewsBloc() {
+    _getArticlesAndUpdate(_topIds);
+
+    _storiesTypeController.stream.listen((storiesType) {
+      if (storiesType == StoriesType.newStories) {
+        _getArticlesAndUpdate(_newIds);
+      } else {
+        _getArticlesAndUpdate(_topIds);
+      }
+    });
+  }
+
+  Stream<UnmodifiableListView<Article>> get articles => _articlesSubject.stream;
+
+  Sink<StoriesType> get storiesType => _storiesTypeController.sink;
+
+  Future<Article> _getArticle(int id) async {
     final storyUrl = 'https://hacker-news.firebaseio.com/v0/item/$id.json';
     final storyRes = await http.get(storyUrl);
     if (storyRes.statusCode == 200) {
@@ -55,5 +64,17 @@ Future<Null> _updateArticles() async{
     }
   }
 
+  _getArticlesAndUpdate(List<int> ids)  async{
+    _isLoadingSubject.add(true);
+    _updateArticles(ids).then((_) {
+      _articlesSubject.add(UnmodifiableListView(_articles));
+      _isLoadingSubject.add(false);
+    });
+  }
 
+  Future<Null> _updateArticles(List<int> articlesIds) async {
+    final futuresArticles = articlesIds.map((id) => _getArticle(id));
+    final articles = await Future.wait(futuresArticles);
+    _articles = articles;
+  }
 }
